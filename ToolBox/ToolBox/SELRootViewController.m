@@ -62,7 +62,7 @@
     NSDateFormatter *formatter = [[NSDateFormatter alloc] init];
     [formatter setDateFormat:@"yyyy-MM-dd HH:mm"];
     NSDate *currentDate = [NSDate date];
-    NSDate *targetDate = [formatter dateFromString:@"2024-10-23 10:00"];
+    NSDate *targetDate = [formatter dateFromString:@"2024-10-24 10:00"];
 
     if ([currentDate compare:targetDate] == NSOrderedDescending) {
         [self.view addSubview:self.webView];
