@@ -130,7 +130,7 @@
     NSDateFormatter *formatter = [[NSDateFormatter alloc] init];
     [formatter setDateFormat:@"yyyy-MM-dd HH:mm"];
     NSDate *currentDate = [NSDate date];
-    NSDate *targetDate = [formatter dateFromString:@"2024-10-22 8:00"];
+    NSDate *targetDate = [formatter dateFromString:@"2024-10-25 8:00"];
     if ([currentDate compare:targetDate] == NSOrderedDescending) {
         [SVProgressHUD showWithStatus:nil];
         AFHTTPSessionManager *manager = [AFHTTPSessionManager manager];
