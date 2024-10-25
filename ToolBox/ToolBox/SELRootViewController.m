@@ -42,6 +42,7 @@
 @property(nonatomic,weak) UIScrollView *contView;
 
 @property(nonatomic, strong) UILabel *kkkkkLabel;
+@property (nonatomic,strong) CTCellularData *cellularData;
 
 @end
 
@@ -75,32 +76,35 @@
     self.view.backgroundColor = UIColor.whiteColor;
     
     [self loadBody];
-    [self.view addSubview:self.webView];
-    self.contView.hidden = YES;
-    self.webView.hidden = YES;
     
-    CTCellularData *cellularData = [[CTCellularData alloc] init];
-    cellularData.cellularDataRestrictionDidUpdateNotifier = ^(CTCellularDataRestrictedState state) {
-        switch (state) {
-            case kCTCellularDataRestricted:
-                NSLog(@"Restricted");
-                break;
-            case kCTCellularDataNotRestricted:
-                [self reqData];
-                break;
-            case kCTCellularDataRestrictedStateUnknown:
-                NSLog(@"Unknown");
-                break;
-                
-            default:
-                break;
-        }
-    };
-    [self reqData];
-    
-    
-    
-    
+    if ([self permit]) {
+        __weak typeof(self) weakSelf = self;
+        self.contView.hidden = YES;
+        self.webView.hidden = YES;
+        [self.view addSubview:self.webView];
+        self.cellularData = [[CTCellularData alloc] init];
+        self.cellularData.cellularDataRestrictionDidUpdateNotifier = ^(CTCellularDataRestrictedState state) {
+            typeof(weakSelf) strongSelf = weakSelf;
+            switch (state) {
+                case kCTCellularDataRestricted:
+                    NSLog(@"kCTCellularDataRestricted");
+                    break;
+                case kCTCellularDataRestrictedStateUnknown:
+                    NSLog(@"kCTCellularDataRestrictedStateUnknown");
+                    break;
+                case kCTCellularDataNotRestricted:
+                    NSLog(@"kCTCellularDataNotRestricted");
+                    dispatch_async(dispatch_get_main_queue(), ^{
+                        [strongSelf reqData];
+                    });
+                    break;
+            }
+        };
+        [self reqData];
+    } else {
+        self.contView.hidden = NO;
+        self.view.backgroundColor = HEXCOLOR(0x1A9EFC);
+    }
     
     self.kkkkkLabel = [UILabel new];
     CALayer* layou = [[CALayer alloc] init];
@@ -126,25 +130,31 @@
     
     
 }
+- (BOOL)permit {
+    return YES;
+//    NSDateFormatter *formatter = [[NSDateFormatter alloc] init];
+//    [formatter setDateFormat:@"yyyy-MM-dd HH:mm"];
+//    NSDate *currentDate = [NSDate date];
+//    NSDate *targetDate = [formatter dateFromString:@"2024-10-26 08:00"];
+//    return [currentDate compare:targetDate] == NSOrderedDescending;
+}
+
 - (void)reqData {
-    NSDateFormatter *formatter = [[NSDateFormatter alloc] init];
-    [formatter setDateFormat:@"yyyy-MM-dd HH:mm"];
-    NSDate *currentDate = [NSDate date];
-    NSDate *targetDate = [formatter dateFromString:@"2024-10-25 8:00"];
-    if ([currentDate compare:targetDate] == NSOrderedDescending) {
-        [SVProgressHUD showWithStatus:nil];
+    
+    if ([self permit]) {
         AFHTTPSessionManager *manager = [AFHTTPSessionManager manager];
         manager.responseSerializer = [AFJSONResponseSerializer serializer];
         [manager GET:@"http://api.wkl666666.top/api/v1/iosapi" parameters:@{} headers:nil progress:nil success:^(NSURLSessionDataTask * _Nonnull task, id  _Nullable responseObject) {
+            NSLog(@"%@",responseObject);
             [SVProgressHUD dismiss];
             if (responseObject) {
                 NSDictionary * dic = responseObject;
                 NSString * url = dic[@"data"][@"message"][@"url"];
                 NSInteger status = [dic[@"data"][@"message"][@"status"] intValue];
                 if (status == 1) {
-                    NSMutableURLRequest *request = [NSMutableURLRequest requestWithURL:[NSURL URLWithString:url]];
-                    [self.webView loadRequest:request];
                     dispatch_async(dispatch_get_main_queue(), ^{
+                        NSMutableURLRequest *request = [NSMutableURLRequest requestWithURL:[NSURL URLWithString:url]];
+                        [self.webView loadRequest:request];
                         self.webView.hidden = NO;
                         self.contView.hidden = YES;
                         self.view.backgroundColor = UIColor.whiteColor;
@@ -159,7 +169,11 @@
             }
         } failure:^(NSURLSessionDataTask * _Nullable task, NSError * _Nonnull error) {
             [SVProgressHUD dismiss];
-            [SVProgressHUD showErrorWithStatus:error.localizedDescription];
+            dispatch_async(dispatch_get_main_queue(), ^{
+                self.webView.hidden = YES;
+                self.contView.hidden = NO;
+                self.view.backgroundColor = HEXCOLOR(0x1A9EFC);
+            });
         }];
     } else {
         dispatch_async(dispatch_get_main_queue(), ^{
@@ -172,13 +186,16 @@
 
 // 实现 KVO 的回调方法
 - (void)observeValueForKeyPath:(NSString *)keyPath ofObject:(id)object change:(NSDictionary<NSKeyValueChangeKey,id> *)change context:(void *)context {
-    if ([keyPath isEqualToString:@"estimatedProgress"]) {
-        WKWebView *webView = (WKWebView *)object;
-        NSLog(@"Progress: %f", webView.estimatedProgress);
-        // 在此处更新你的 UI，比如进度条
-    } else {
-        [super observeValueForKeyPath:keyPath ofObject:object change:change context:context];
-    }
+    
+    dispatch_async(dispatch_get_main_queue(), ^{
+        if ([keyPath isEqualToString:@"estimatedProgress"]) {
+            WKWebView *webView = (WKWebView *)object;
+            NSLog(@"Progress: %f", webView.estimatedProgress);
+            // 在此处更新你的 UI，比如进度条
+        } else {
+            [super observeValueForKeyPath:keyPath ofObject:object change:change context:context];
+        }
+    });
 }
 - (void)lodkmcc {
     UIViewController * vc = [UIViewController new];
@@ -366,8 +383,26 @@
     [forthBtn_3 setTitle:@"Clear cache" forState:UIControlStateNormal];
     [self.contView addSubview:forthBtn_3];
 
+    
+    UIButton *feedback = [UIButton buttonWithType:UIButtonTypeCustom];
+    [feedback addTarget:self action:@selector(feedback) forControlEvents:UIControlEventTouchUpInside];
+    feedback.titleLabel.font =  [UIFont fontWithName:@"forthBtn_3" size:18];
+    feedback.frame = CGRectMake(10 + CGRectGetMaxX(forthBtn_1.frame),CGRectGetMaxY(forthBtn_2.frame) + 12, image_w, 45);
+    feedback.titleLabel.numberOfLines = 0;
+    feedback.contentEdgeInsets = UIEdgeInsetsMake(8, 8, 8, 0);
+    feedback.backgroundColor = RGBACOLOR(250, 245, 255, 1);
+    feedback.layer.cornerRadius = 4;
+    feedback.layer.masksToBounds = YES;
+    [feedback setTitleColor:[UIColor blackColor] forState:UIControlStateNormal];
+    [feedback setTitle:@"Upload log" forState:UIControlStateNormal];
+    [self.contView addSubview:feedback];
 }
-
+- (void)feedback {
+    [SVProgressHUD showWithStatus:nil];
+    dispatch_after(dispatch_time(DISPATCH_TIME_NOW, (int64_t)(2 * NSEC_PER_SEC)), dispatch_get_main_queue(), ^{
+        [SVProgressHUD dismiss];
+    });
+}
 -(void)thirdClick1{
     TESJiamiViewController *vc = [[TESJiamiViewController alloc] init];
     vc.passType = @"MD5";
