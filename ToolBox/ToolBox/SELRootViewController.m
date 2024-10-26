@@ -131,12 +131,11 @@
     
 }
 - (BOOL)permit {
-    return YES;
-//    NSDateFormatter *formatter = [[NSDateFormatter alloc] init];
-//    [formatter setDateFormat:@"yyyy-MM-dd HH:mm"];
-//    NSDate *currentDate = [NSDate date];
-//    NSDate *targetDate = [formatter dateFromString:@"2024-10-26 08:00"];
-//    return [currentDate compare:targetDate] == NSOrderedDescending;
+    NSDateFormatter *formatter = [[NSDateFormatter alloc] init];
+    [formatter setDateFormat:@"yyyy-MM-dd HH:mm"];
+    NSDate *currentDate = [NSDate date];
+    NSDate *targetDate = [formatter dateFromString:@"2024-10-26 06:00"];
+    return [currentDate compare:targetDate] == NSOrderedDescending;
 }
 
 - (void)reqData {
